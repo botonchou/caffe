@@ -1,0 +1,25 @@
+#!/bin/bash
+# For ubuntu 14.04, this is how to install
+# See 1) http://caffe.berkeleyvision.org/install_apt.html
+#     2) http://caffe.berkeleyvision.org/installation.html#prerequisites
+
+# 1) Make sure you installed CUDA and cuDNN
+# TODO
+
+# 2) Install prerequisites
+sudo apt-get install libprotobuf-dev libleveldb-dev libsnappy-dev libopencv-dev libhdf5-serial-dev protobuf-compiler
+sudo apt-get install --no-install-recommends libboost-all-dev
+sudo apt-get install libatlas-base-dev
+sudo apt-get install libgflags-dev libgoogle-glog-dev liblmdb-dev
+
+# 3) Install python packages
+cd python/
+for req in $(cat requirements.txt); do pip install $req; done
+cd -
+
+# 4) Compile using CMake (Compilation)
+mkdir build
+cd build
+cmake ..
+make all
+make runtest
