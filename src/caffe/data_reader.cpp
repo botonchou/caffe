@@ -71,9 +71,36 @@ DataReader::Body::~Body() {
 }
 
 void DataReader::Body::InternalThreadEntry() {
-  shared_ptr<db::DB> db(db::GetDB(param_.data_param().backend()));
-  db->Open(param_.data_param().source(), db::READ);
-  shared_ptr<db::Cursor> cursor(db->NewCursor());
+  int num_sources = param_.data_param().source_size();
+  int num_proportion = param_.data_param().proportion_size();
+
+  if (num_sources > 1)
+    CHECK_EQ(num_sources, num_proportion);
+
+  vector<shared_ptr<db::DB> > dbs(num_sources);
+  vector<shared_ptr<db::Cursor> > cursors(dbs.size());
+
+  for (int i = 0; i < dbs.size(); ++i) {
+    dbs[i] = shared_ptr<db::DB>(db::GetDB(param_.data_param().backend()));
+    dbs[i]->Open(param_.data_param().source(i), db::READ);
+    cursors[i] = shared_ptr<db::Cursor>(dbs[i]->NewCursor());
+  }
+
+  // Ex 1: proportion = [] => round_robin_mapping = [0]
+  // Ex 2: proportion = [2, 3, 2] => round_robin_mapping = [0, 0, 1, 1, 1, 2, 2]
+  vector<int> round_robin_mapping;
+
+  if (num_sources == 1) {
+    round_robin_mapping.push_back(0);
+  }
+  else {
+    for (int i=0; i<num_proportion; ++i) {
+      int p = param_.data_param().proportion(i);
+      for (int j=0; j<p; ++j)
+	round_robin_mapping.push_back(i);
+    }
+  }
+
   vector<shared_ptr<QueuePair> > qps;
   try {
     int solver_count = param_.phase() == TRAIN ? Caffe::solver_count() : 1;
@@ -83,13 +110,17 @@ void DataReader::Body::InternalThreadEntry() {
     // so read one item, then wait for the next solver.
     for (int i = 0; i < solver_count; ++i) {
       shared_ptr<QueuePair> qp(new_queue_pairs_.pop());
-      read_one(cursor.get(), qp.get());
+      read_one(cursors[0].get(), qp.get());
       qps.push_back(qp);
     }
     // Main loop
+    size_t counter = 0;
     while (!must_stop()) {
+      int source_id = round_robin_mapping[++counter % round_robin_mapping.size()];
+      // printf("Using \33[33m%s\33[0m\n", param_.data_param().source(source_id).c_str());
+
       for (int i = 0; i < solver_count; ++i) {
-        read_one(cursor.get(), qps[i].get());
+	read_one(cursors[source_id].get(), qps[i].get());
       }
       // Check no additional readers have been created. This can happen if
       // more than one net is trained at a time per process, whether single

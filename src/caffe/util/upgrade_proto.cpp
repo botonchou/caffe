@@ -375,7 +375,7 @@ bool UpgradeV0LayerParameter(const V1LayerParameter& v0_layer_connection,
     }
     if (v0_layer_param.has_source()) {
       if (type == "data") {
-        layer_param->mutable_data_param()->set_source(v0_layer_param.source());
+        layer_param->mutable_data_param()->set_source(0, v0_layer_param.source());
       } else if (type == "hdf5_data") {
         layer_param->mutable_hdf5_data_param()->set_source(
             v0_layer_param.source());

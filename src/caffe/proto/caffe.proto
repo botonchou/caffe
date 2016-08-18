@@ -630,7 +630,8 @@ message DataParameter {
     LMDB = 1;
   }
   // Specify the data source.
-  optional string source = 1;
+  repeated string source = 1;
+  repeated uint32 proportion = 11;
   // Specify the batch size.
   optional uint32 batch_size = 4;
   // The rand_skip variable is for the data layer to skip a few data points
